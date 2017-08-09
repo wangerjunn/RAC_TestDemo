@@ -40,7 +40,7 @@
         
         NSLog(@"-----%@-----",tf.text);
     } completed:^{
-        NSLog(@"-------");
+        NSLog(@"----UIControlEventEditingChanged----");
     }];
     
 //    [[field rac_textSignal] subscribeNext:^(id x) {
@@ -80,6 +80,7 @@
     [self.view addSubview:btn];
     
     [[btn rac_signalForControlEvents:UIControlEventTouchUpInside] subscribeNext:^(id x) {
+        NSLog(@"button响应事件");
         [self showTitle:@"点击button"];
     }];
     
@@ -121,7 +122,7 @@
         NSLog(@"%@", value);
         return @1;
     }] subscribeNext:^(id x) {
-        NSLog(@"%@", x);
+        NSLog(@"映射内容：%@", x);
     }];
     
     //map构造的映射块value的值就是控件中的字符变化，而订阅者x的值就是映射者的返回值1
@@ -155,7 +156,50 @@
     
     //这个demo只会输出前两个信号1和2还有完成信号completed，skip,repeat同理.相似的还有takeLast takeUntil takeWhileBlock skipWhileBlock skipUntilBlock repeatWhileBlock都可以根据字面意思来理解。
     
-    //delay
+    //delay 延时信号，即延迟发送信号
+    RACSignal *delaySignal = [[RACSignal createSignal:^RACDisposable *(id<RACSubscriber> subscriber) {
+        
+        [subscriber sendNext:@"延迟了5s"];
+        [subscriber sendCompleted];
+        return nil;
+    }] delay:5];
+    
+    [delaySignal subscribeNext:^(id x) {
+        NSLog(@"信号延迟：%@",x);
+    } completed:^{
+        NSLog(@"延迟调用完成");
+    }];
+    
+    //throttle 节流，在我们做搜索框的时候，有时候的需求是实时搜索，即用户每每输入字符，view都要求展现搜索结果。这时如果用户搜索的字符串较长，那么由于网络请求的延时可能造成UI显示错误，并且多次不必要的请求还会加大服务器的压力，这显然是不合理的，此时我们就需要用到节流。
+    
+    [[[field rac_textSignal] throttle:.5] subscribeNext:^(id x) {
+        NSLog(@"节流内容：%@",x);
+    } completed:^{
+        NSLog(@"节流内容完成");
+    }];
+    
+    //distincUntilChanged
+    //网络请求中为了减轻服务器压力，无用的请求我们应该尽可能不发送。distinctUnitChanged的作用是使RAC不会连续发送两次相同的信号，这样就解决了这个问题。
+    [[[field rac_textSignal] distinctUntilChanged] subscribeNext:^(id x) {
+        NSLog(@"distincUntilChanged：%@", x);
+    }];
+    
+    
+    //timeout 超时信号，当超出限定时间后会给订阅者发送error信号。
+    
+    RACSignal *tiemoutSignal = [[RACSignal createSignal:^RACDisposable *(id<RACSubscriber> subscriber) {
+            [[RACScheduler mainThreadScheduler] afterDelay:3 schedule:^{
+                [subscriber sendNext:@"delay"];
+                [subscriber sendCompleted];
+            }];
+        return nil;
+    }] timeout:2 onScheduler:[RACScheduler mainThreadScheduler]];
+    
+    [tiemoutSignal subscribeNext:^(id x) {
+        NSLog(@"%@", x);
+    } error:^(NSError *error) {
+        NSLog(@"%@", error);
+    }];
 }
 
 
