@@ -43,15 +43,12 @@
         NSLog(@"-------");
     }];
     
-    [[field rac_textSignal] subscribeNext:^(id x) {
-        
-    } completed:^{
-        
-    }];
+//    [[field rac_textSignal] subscribeNext:^(id x) {
+//        
+//    } completed:^{
+//        
+//    }];
     
-    [RACObserve(field, text) subscribeNext:^(id x) {
-        NSLog(@"%@",x);
-    }];
     
     UILabel *label = [[UILabel alloc]initWithFrame:CGRectMake(field.left, field.bottom+15, field.width, field.height)];
     label.backgroundColor = [UIColor redColor];
@@ -62,6 +59,11 @@
     label.userInteractionEnabled = YES;
     [self.view addSubview:label];
     
+    [RACObserve(field, text) subscribeNext:^(id x) {
+        NSLog(@"%@",x);
+        label.text = x;
+    }];
+
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc]init];
     [[tap rac_gestureSignal] subscribeNext:^(id x) {
         [self showTitle:@"点击label"];
@@ -95,7 +97,67 @@
     /**************探究RAC-RAC信号处理方法归纳**************/
     //RAC的核心就是信号(RACSignal)
     
+    //自己手动写一个RACSignal
+    //创建信号
+    RACSignal *signalTest = [RACSignal createSignal:^RACDisposable *(id<RACSubscriber> subscriber) {
+        [subscriber sendNext:@"signal"];
+        [subscriber sendCompleted];
+        
+        return nil;
+    }];
+    
+    //订阅信号
+    [signalTest subscribeNext:^(id x) {
+        NSLog(@"x = %@", x);
+    } error:^(NSError *error) {
+        NSLog(@"error = %@",error);
+    } completed:^{
+        NSLog(@"completed");
+    }];
+    
+    //信号的处理
+        //map：映射，创建一个订阅者的映射并且返回数据
+    [[field.rac_textSignal map:^id(id value) {
+        NSLog(@"%@", value);
+        return @1;
+    }] subscribeNext:^(id x) {
+        NSLog(@"%@", x);
+    }];
+    
+    //map构造的映射块value的值就是控件中的字符变化，而订阅者x的值就是映射者的返回值1
+    
+    //filter（过滤）帮助你筛选出你需要的信号变化
+    [[field.rac_textSignal filter:^BOOL(id value) {
+        return [value length] > 3;
+    }] subscribeNext:^(id x) {
+        NSLog(@"x = %@", x);
+    }];
+    
+    //take/skip/repeat
+        //take是获取，skip是跳过，这两个方法后面跟着NSInteger。所以take 2就是获取前两个信号，skip 2就是跳过前两个。repeat是重复发送信号。
+    
+    RACSignal *takeSignal = [[RACSignal createSignal:^RACDisposable *(id<RACSubscriber> subscriber) {
+        
+        [subscriber sendNext:@"1"];
+        [subscriber sendNext:@"2"];
+        [subscriber sendNext:@"3"];
+        [subscriber sendNext:@"4"];
+        [subscriber sendNext:@"5"];
+        
+        return nil;
+    }] take:2];
+    
+    [takeSignal subscribeNext:^(id x) {
+        NSLog(@"%@",x);
+    }completed:^{
+        NSLog(@"completed");
+    }];
+    
+    //这个demo只会输出前两个信号1和2还有完成信号completed，skip,repeat同理.相似的还有takeLast takeUntil takeWhileBlock skipWhileBlock skipUntilBlock repeatWhileBlock都可以根据字面意思来理解。
+    
+    //delay
 }
+
 
 - (void)showTitle:(NSString *)title {
     
